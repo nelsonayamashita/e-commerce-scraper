@@ -59,19 +59,27 @@ def amazon_scrape():
         element_present = EC.visibility_of_element_located((By.CSS_SELECTOR, "div[class='a-section a-spacing-small puis-padding-left-small puis-padding-right-small']"))
         WebDriverWait(driver, 10).until(element_present)
         
-        # Find all products in the page
-        product_elements = driver.find_elements(By.CSS_SELECTOR, "span[class='a-size-base-plus a-color-base a-text-normal']")
-        price_elements = driver.find_elements(By.CSS_SELECTOR, "span[class='a-price']")
+        soup = BeautifulSoup(driver.page_source, "html.parser")
         
-        for product, price in zip(product_elements, price_elements):
-            products.append((product.text, price.text.replace('\n', '.')))
+        product_list = soup.select("div[class^='s-widget-container s-spacing-small s-widget-container-height-small celwidget slot=MAIN template=SEARCH_RESULTS widgetId=search-results']")
+        
+        for product in product_list:
+            name = product.select_one("span[class='a-size-base-plus a-color-base a-text-normal']").text
+            price = product.select_one("span[class='a-offscreen']")
+            
+            if price:
+                products.append((name, price.text.replace("\xa0", " ")))
+            else:
+                products.append((name, "NA"))
         
         # Find and click the next page button
-        next_button = driver.find_element(By.CSS_SELECTOR, "a[class='s-pagination-item s-pagination-next s-pagination-button s-pagination-separator']")
+        button_present = EC.visibility_of_element_located((By.CSS_SELECTOR, "a[class='s-pagination-item s-pagination-next s-pagination-button s-pagination-separator']"))
+        WebDriverWait(driver, 10).until(button_present)
+        
         WebDriverWait(driver, 10).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, "div[id='aod-background']")))
+        next_button = driver.find_element(By.CSS_SELECTOR, "a[class='s-pagination-item s-pagination-next s-pagination-button s-pagination-separator']")
         next_button.click()
-        element_present = EC.visibility_of_element_located((By.CSS_SELECTOR, "div[class='a-section a-spacing-small puis-padding-left-small puis-padding-right-small']"))
-
+        
     driver.close()
     return products
 
@@ -108,7 +116,7 @@ def petlove_scrape():
 
 def petz_scrape():
     opts = FirefoxOptions()
-    opts.add_argument("--headless")
+    #opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
 
     products = []
