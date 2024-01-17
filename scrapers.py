@@ -13,7 +13,7 @@ HEADER = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gec
 
 
 def submarino_scrape():
-    submarino = "https://www.submarino.com.br/categoria/pet-shop/caes/alimentos/racao?limit=240&offset=0"
+    submarino = "https://www.submarino.com.br/categoria/pet-shop/caes/alimentos/racao?limit=300&offset=0"
     opts = FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
@@ -26,17 +26,29 @@ def submarino_scrape():
     # Wait for the products to load
     element_present = EC.visibility_of_element_located((By.CSS_SELECTOR, "div[class^='src__Wrapper-sc']"))
     WebDriverWait(driver, 10).until(element_present)
+    
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    
+    product_list = soup.select("a[class^='inStockCard__Link-sc']")
+    
+    for product in product_list:
+        name = product.select_one("h3[class^='product-name__Name']").text
 
-    # Find all elements in the page
-    product_elements = driver.find_elements(By.CSS_SELECTOR, "h3[class^='product-name__Name']")
-    price_elements = driver.find_elements(By.CSS_SELECTOR, "span[class*='price__PromotionalPrice']")
+        # It's possible that the product is out of stock or withou any promotions
+        # or without ratings
+        price = product.select_one("span[class*='price__PromotionalPrice']")
+        price = price.text if price else "NA"
 
-    for product, price in zip(product_elements, price_elements):
-        products.append((product.text, price.text))
+        original_price = product.select_one("span[class*='price__Price-sc']")
+        original_price = original_price.text if original_price else price # if there is no original price, current price is the original
+
+        rating = product.select_one("span[class^='src__Count-sc']")
+        rating = rating.text[:-11] if rating else "NA" # -11 to remove "avaliações"
+        
+        products.append((name, price, original_price, rating))
 
     driver.close()
     return products
-
 
 def amazon_scrape():
     opts = FirefoxOptions()
@@ -65,12 +77,18 @@ def amazon_scrape():
         
         for product in product_list:
             name = product.select_one("span[class='a-size-base-plus a-color-base a-text-normal']").text
-            price = product.select_one("span[class='a-offscreen']")
             
-            if price:
-                products.append((name, price.text.replace("\xa0", " ")))
-            else:
-                products.append((name, "NA"))
+            price = product.select_one("span[class='a-offscreen']")
+            price = price.text.replace("\xa0", " ") if price else "NA"
+            
+            original_price = product.select_one("span[data-a-strike='true']>span[aria-hidden='true']")
+            original_price = original_price.text if original_price else price # if there is no original price, current price is the original
+            
+            rating = product.select_one("a[class='a-link-normal s-underline-text s-underline-link-text s-link-style']>span[class='a-size-base s-underline-text']")
+            rating = rating.text.replace('.', '') if rating else "NA" # need to remove mile separator
+            
+            products.append((name, price, original_price, rating))
+            
         
         # Find and click the next page button
         button_present = EC.visibility_of_element_located((By.CSS_SELECTOR, "a[class='s-pagination-item s-pagination-next s-pagination-button s-pagination-separator']"))
@@ -103,12 +121,17 @@ def petlove_scrape():
         product_list = soup.select("li[class=catalog-item]")
 
         for prod in product_list:
-            name = prod.select_one("h2[class='product-name card-list-name']")
+            name = prod.select_one("h2[class='product-name card-list-name']").text
+
             price = prod.select_one("span[class='catalog-card-prices__price-per']")
-            if price:
-                products.append((name.text, price.text))
-            else:
-                products.append((name.text, "N/A"))
+            price = price.text if price else "NA"
+
+            old_price = prod.select_one("s[class='catalog-card-prices__price-of']")
+            old_price = old_price.text if old_price else price
+            
+            ratings = "NA" # can't get ratings in this site
+            
+            products.append((name, price, old_price, ratings))
                 
     driver.close()
     return products
@@ -116,7 +139,7 @@ def petlove_scrape():
 
 def petz_scrape():
     opts = FirefoxOptions()
-    #opts.add_argument("--headless")
+    opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
 
     products = []
@@ -143,14 +166,53 @@ def petz_scrape():
         print(f"Current Scrapping {num_elements} elements")
 
     for prod in product_list:
-        name = prod.select_one("p[class='ptz-card-label-left']")
+        name = prod.select_one("p[class='ptz-card-label-left']").text
         price = prod.select_one("p[class='ptz-card-price']")
+        
         # Remove non-breaking space in Latin1 and children
-        if price:
-            price_clean = ' '.join([str(item) for item in price if item.name != 'span']).replace(u'\xa0', u' ')
-            products.append((name.text, price_clean))
-        else:
-            products.append((name.text, "N/A"))
+        price = ' '.join([str(item) for item in price if item.name != 'span']).replace('\xa0', ' ') if price else "NA"
+        
+        old_price = prod.select_one("span[class='ptz-card-price-older']")
+        old_price = old_price.text.replace('\xa0', " ") if ((old_price) and len(old_price.text)) else price
+        
+        rating = "NA" # can't acces rating in this site
+        
+        products.append((name, price, old_price, rating))
 
+
+    driver.close()
+    return products
+
+
+def magalu_scrape():
+    opts = FirefoxOptions()
+    opts.add_argument("--headless")
+    driver = webdriver.Firefox(options=opts)
+    
+    products = []
+    
+    for page in range(1,6):
+        driver.get(f"https://www.magazineluiza.com.br/racao-seca-para-cachorro/pet-shop/s/pe/prac/?page={page}")
+        print(f"Start scrapping page {page}")
+
+        WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "a[data-testid='product-card-container']")))
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+        product_list = soup.select("a[data-testid='product-card-container']")
+        
+        for product in product_list:
+            name = product.select_one("h2[data-testid='product-title']").text
+
+            price = product.select_one("p[data-testid='price-value']")
+            price = price.text.replace("\xa0", " ").replace(".", "") if price else "NA"
+
+            original_price = product.select_one("p[data-testid='price-original']")
+            original_price = original_price.text.replace("\xa0", " ").replace(".", "") if original_price else price # if there is no original price, current price is the original
+
+            rating = product.select_one("div[data-testid='review']>span[format='count']")
+            rating = rating.text if rating else "NA"
+
+            products.append((name, price, original_price, rating))
+    
     driver.close()
     return products
