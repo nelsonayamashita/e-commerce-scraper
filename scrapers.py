@@ -34,7 +34,7 @@ def submarino_scrape():
     for product in product_list:
         name = product.select_one("h3[class^='product-name__Name']").text
 
-        # It's possible that the product is out of stock or withou any promotions
+        # It's possible that the product is out of stock or without any promotions
         # or without ratings
         price = product.select_one("span[class*='price__PromotionalPrice']")
         price = price.text if price else "NA"
