@@ -58,7 +58,6 @@ def main():
     print("\nDone!")
 
 
-
 def string_to_float(value):
     if value != "NA" and value != "sem" and len(value):
         return float(value.replace("R$", "").replace(",", "."))

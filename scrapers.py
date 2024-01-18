@@ -1,5 +1,4 @@
 from bs4 import BeautifulSoup
-import pandas as pd
 
 from selenium import webdriver
 from selenium.webdriver import FirefoxOptions
@@ -7,15 +6,27 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
-def submarino_scrape():
-    submarino = "https://www.submarino.com.br/categoria/pet-shop/caes/alimentos/racao?limit=300&offset=0"
+def submarino_scrape(num_pages=13):
+    '''
+    Returns a tuple with name, currnet price, old price and number of ratings
+    from Submarino e e-commerce.
+
+        Parameters:
+            num_pages (int): number of pages to be scraped.
+        
+        Returns:
+            products (tuple): tuple with name, price, old price and number of ratings
+            of all products found. 
+    '''
+    # Each page has 24 elements, we'll query all of them at once
+    submarino = f"https://www.submarino.com.br/categoria/pet-shop/caes/alimentos/racao?limit={num_pages * 24}&offset=0"
     opts = FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
 
     products = []
 
-    # Here we're already querrying 240 itens
+    # Here we're already querrying all itens
     driver.get(submarino)
 
     # Wait for the products to load
@@ -26,7 +37,12 @@ def submarino_scrape():
     
     product_list = soup.select("a[class^='inStockCard__Link-sc']")
     
-    for product in product_list:
+    pages = 0
+    for (i, product) in enumerate(product_list):
+        if i % 24 == 0:
+            pages += 1
+            print(f"Start scrapping page {pages}")
+
         name = product.select_one("h3[class^='product-name__Name']").text
 
         # It's possible that the product is out of stock or without any promotions
@@ -46,7 +62,18 @@ def submarino_scrape():
     return products
 
 
-def amazon_scrape():
+def amazon_scrape(num_pages=10):
+    '''
+    Returns a tuple with name, currnet price, old price and number of ratings
+    from Amazon e e-commerce.
+
+        Parameters:
+            num_pages (int): number of pages to be scraped.
+        
+        Returns:
+            products (tuple): tuple with name, price, old price and number of ratings
+            of all products found. 
+    '''
     opts = FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
@@ -57,7 +84,7 @@ def amazon_scrape():
     driver.get("https://www.amazon.com.br/s?rh=n%3A19654037011&fs=true&ref=lp_19654037011_sar")
 
     # Get the 10 first product pages
-    for i in range(1, 11):
+    for i in range(1, num_pages+1):
         product_elements = []
         price_elements = []
         
@@ -98,7 +125,18 @@ def amazon_scrape():
     return products
 
 
-def petlove_scrape():
+def petlove_scrape(num_pages=10):
+    '''
+    Returns a tuple with name, currnet price, old price and number of ratings
+    from Petlove e e-commerce.
+
+        Parameters:
+            num_pages (int): number of pages to be scraped.
+        
+        Returns:
+            products (tuple): tuple with name, price, old price and number of ratings
+            of all products found. 
+    '''
     opts = FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
@@ -106,7 +144,7 @@ def petlove_scrape():
     # We'll loop trough the pages since the buttons didn't work well with selenium
     products = []
 
-    for page in range(1, 11):
+    for page in range(1, num_pages+1):
         print(f"Start scrapping page {page}")
         
         petlove = f"https://www.petlove.com.br/cachorro/racoes?page={page}"
@@ -133,7 +171,18 @@ def petlove_scrape():
     return products
 
 
-def petz_scrape():
+def petz_scrape(max_elements=400):
+    '''
+    Returns a tuple with name, currnet price, old price and number of ratings
+    from Petz e e-commerce.
+
+        Parameters:
+            num_pages (int): number of elements to be scraped.
+        
+        Returns:
+            products (tuple): tuple with name, price, old price and number of ratings
+            of all products found. 
+    '''
     opts = FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
@@ -146,7 +195,7 @@ def petz_scrape():
 
     num_elements = 0
     new_height = 0
-    while num_elements < 400:
+    while num_elements < max_elements:
         # Scroll down to bottom
         driver.execute_script(f"window.scrollTo({new_height}, document.body.scrollHeight);")
 
@@ -180,14 +229,25 @@ def petz_scrape():
     return products
 
 
-def magalu_scrape():
+def magalu_scrape(num_pages=5):
+    '''
+    Returns a tuple with name, currnet price, old price and number of ratings
+    from Magazine Luiza e e-commerce.
+
+        Parameters:
+            num_pages (int): number of pages to be scraped.
+        
+        Returns:
+            products (tuple): tuple with name, price, old price and number of ratings
+            of all products found. 
+    '''
     opts = FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options=opts)
     
     products = []
     
-    for page in range(1,6):
+    for page in range(1, num_pages+1):
         driver.get(f"https://www.magazineluiza.com.br/racao-seca-para-cachorro/pet-shop/s/pe/prac/?page={page}")
         print(f"Start scrapping page {page}")
 
@@ -214,7 +274,18 @@ def magalu_scrape():
     return products
 
 
-def meli_scrape():
+def meli_scrape(num_pages=10):
+    '''
+    Returns a tuple with name, currnet price, old price and number of ratings
+    from Mercado Livre e-commerce.
+
+        Parameters:
+            num_pages (int): number of pages to be scraped.
+        
+        Returns:
+            products (tuple): tuple with name, price, old price and number of ratings
+            of all products found. 
+    '''
     
     opts = FirefoxOptions()
     opts.add_argument("--headless")
@@ -222,7 +293,7 @@ def meli_scrape():
 
     products = []
 
-    for page in range(0,10):
+    for page in range(1, num_pages + 1):
         # The site shows ~48 itens per page and uses the url to control that
         driver.get(f"https://lista.mercadolivre.com.br/animais/cachorros/alimento-petisco-suplemento/racao-cachorros/ração_Desde_{1+page*48}_NoIndex_True")
         print(f"Start scrapping page {page}")
