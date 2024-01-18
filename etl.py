@@ -2,20 +2,22 @@ from dotenv import load_dotenv
 import sqlalchemy as db
 import pandas as pd
 import os 
-from scrapers import submarino_scrape, amazon_scrape, petlove_scrape, petz_scrape, magalu_scrape
+from scrapers import submarino_scrape, amazon_scrape, petlove_scrape, petz_scrape, magalu_scrape, meli_scrape
 
 def main():
     # Extract
-    print("Start scraping Submarino...")
+    print("\nStart scraping Submarino...")
     submarino_products = submarino_scrape()
-    print("Start scraping Amazon...")
+    print("\nStart scraping Amazon...")
     amazon_products = amazon_scrape()
-    print("Start scraping Petlove...")
+    print("\nStart scraping Petlove...")
     petlove_products = petlove_scrape()
-    print("Start scraping Petz...")
+    print("\nStart scraping Petz...")
     petz_products = petz_scrape()
-    print("Start scraping Magalu...")
+    print("\nStart scraping Magalu...")
     magalu_products = magalu_scrape()
+    print("\nStart scraping Meli...")
+    meli_products = meli_scrape()
 
     # Transform
     df_submarino = pd.DataFrame(submarino_products, columns=["name", "price", "old_price", "ratings"])
@@ -33,8 +35,11 @@ def main():
     df_magalu = pd.DataFrame(magalu_products, columns=["name", "price", "old_price", "ratings"])
     df_magalu["e-commerce"] = "Magalu"
 
+    df_meli = pd.DataFrame(meli_products, columns=["name", "price", "old_price", "ratings"])
+    df_meli["e-commerce"] = "Mercado Livre"
+
     df = pd.DataFrame()
-    for df0 in [df_submarino, df_amazon, df_petz,  df_petlove, df_magalu]:
+    for df0 in [df_submarino, df_amazon, df_petz,  df_petlove, df_magalu, df_meli]:
         df = pd.concat([df, sanitize(df0)])
 
     df["discount"] = (1 - df['price']/df['old_price']) * 100
@@ -46,10 +51,11 @@ def main():
     load_dotenv() 
     USR = os.getenv("USR")
     PASSWORD = os.getenv("PASSWORD")
+    print("\nLoading into database...")
     engine = db.create_engine(f"postgresql://{USR}:{PASSWORD}@localhost:5432/ecommerce")
-    connect = engine.connect()
-    df.to_sql("scrape_results", connect, if_exists='replace', index=False)
+    df.to_sql("scrape_results", engine, if_exists='replace', index=False)
     engine.dispose()
+    print("\nDone!")
 
 
 
