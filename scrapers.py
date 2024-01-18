@@ -1,4 +1,3 @@
-import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
@@ -7,10 +6,6 @@ from selenium.webdriver import FirefoxOptions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-
-# Constants
-HEADER = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'}
-
 
 def submarino_scrape():
     submarino = "https://www.submarino.com.br/categoria/pet-shop/caes/alimentos/racao?limit=300&offset=0"
@@ -49,6 +44,7 @@ def submarino_scrape():
 
     driver.close()
     return products
+
 
 def amazon_scrape():
     opts = FirefoxOptions()
@@ -211,6 +207,42 @@ def magalu_scrape():
 
             rating = product.select_one("div[data-testid='review']>span[format='count']")
             rating = rating.text if rating else "NA"
+
+            products.append((name, price, original_price, rating))
+    
+    driver.close()
+    return products
+
+
+def meli_scrape():
+    
+    opts = FirefoxOptions()
+    opts.add_argument("--headless")
+    driver = webdriver.Firefox(options=opts)
+
+    products = []
+
+    for page in range(0,10):
+        # The site shows ~48 itens per page and uses the url to control that
+        driver.get(f"https://lista.mercadolivre.com.br/animais/cachorros/alimento-petisco-suplemento/racao-cachorros/ração_Desde_{1+page*48}_NoIndex_True")
+        print(f"Start scrapping page {page}")
+
+        WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "div[class='ui-search-result__wrapper']")))
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+        product_list = soup.select("div[class='ui-search-result__wrapper']")
+        
+        for product in product_list:
+            name = product.select_one("a[class='ui-search-item__group__element ui-search-link__title-card ui-search-link']").text
+
+            price = product.select_one("span[aria-roledescription='Preço']")
+            price = price.text.replace(".", "") if price else "NA"
+
+            original_price = product.select_one("s[aria-roledescription='Preço']")
+            original_price = original_price.text.replace(".", "") if original_price else price # if there is no original price, current price is the original
+
+            rating = product.select_one("span[class='ui-search-reviews__amount']")
+            rating = rating.text.strip("()") if rating else "NA" # removes parentheses from begining and ending eg: (445) -> 445
 
             products.append((name, price, original_price, rating))
     
